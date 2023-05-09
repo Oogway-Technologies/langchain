@@ -8,6 +8,7 @@ import pytest
 from langchain.embeddings.base import Embeddings
 from langchain.retrievers.time_weighted_retriever import (
     TimeWeightedVectorStoreRetriever,
+    _get_datetime_in_epoch_ms,
     _get_hours_passed,
 )
 from langchain.schema import Document
@@ -20,7 +21,9 @@ def _get_example_memories(k: int = 4) -> List[Document]:
             page_content="foo",
             metadata={
                 "buffer_idx": i,
-                "last_accessed_at": datetime(2023, 4, 14, 12, 0),
+                "last_accessed_at": _get_datetime_in_epoch_ms(
+                    datetime(2023, 4, 14, 12, 0)
+                ),
             },
         )
         for i in range(k)
@@ -108,8 +111,8 @@ def time_weighted_retriever() -> TimeWeightedVectorStoreRetriever:
 
 
 def test__get_hours_passed() -> None:
-    time1 = datetime(2023, 4, 14, 14, 30)
-    time2 = datetime(2023, 4, 14, 12, 0)
+    time1 = _get_datetime_in_epoch_ms(datetime(2023, 4, 14, 14, 30))
+    time2 = _get_datetime_in_epoch_ms(datetime(2023, 4, 14, 12, 0))
     expected_hours_passed = 2.5
     hours_passed = _get_hours_passed(time1, time2)
     assert hours_passed == expected_hours_passed
@@ -120,11 +123,13 @@ def test_get_combined_score(
 ) -> None:
     document = Document(
         page_content="Test document",
-        metadata={"last_accessed_at": datetime(2023, 4, 14, 12, 0)},
+        metadata={
+            "last_accessed_at": _get_datetime_in_epoch_ms(datetime(2023, 4, 14, 12, 0))
+        },
     )
     vector_salience = 0.7
     expected_hours_passed = 2.5
-    current_time = datetime(2023, 4, 14, 14, 30)
+    current_time = _get_datetime_in_epoch_ms(datetime(2023, 4, 14, 14, 30))
     combined_score = time_weighted_retriever._get_combined_score(
         document, vector_salience, current_time
     )

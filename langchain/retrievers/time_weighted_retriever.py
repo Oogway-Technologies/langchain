@@ -9,9 +9,15 @@ from langchain.schema import BaseRetriever, Document
 from langchain.vectorstores.base import VectorStore
 
 
-def _get_hours_passed(time: datetime, ref_time: datetime) -> float:
-    """Get the hours passed between two datetime objects."""
-    return (time - ref_time).total_seconds() / 3600
+def _get_hours_passed(time: int, ref_time: int) -> float:
+    """Get the hours passed between two datetime Epoch MS (UnixTime) objects."""
+    # Divide by 1000 to get seconds passed, then 3600 to get hours
+    return (time - ref_time) / (1000 * 3600)
+
+
+def _get_datetime_in_epoch_ms(dt: datetime = datetime.now()) -> int:
+    """Get the current time in epoch milliseconds."""
+    return int(dt.timestamp() * 1000)
 
 
 class TimeWeightedVectorStoreRetriever(BaseRetriever, BaseModel):
@@ -51,7 +57,7 @@ class TimeWeightedVectorStoreRetriever(BaseRetriever, BaseModel):
         self,
         document: Document,
         vector_relevance: Optional[float],
-        current_time: datetime,
+        current_time: int,  # Assumes Epoch MS
     ) -> float:
         """Return the combined score for a document."""
         hours_passed = _get_hours_passed(
@@ -82,7 +88,7 @@ class TimeWeightedVectorStoreRetriever(BaseRetriever, BaseModel):
 
     def get_relevant_documents(self, query: str) -> List[Document]:
         """Return documents that are relevant to the query."""
-        current_time = datetime.now()
+        current_time = _get_datetime_in_epoch_ms()
         docs_and_scores = {
             doc.metadata["buffer_idx"]: (doc, self.default_salience)
             for doc in self.memory_stream[-self.k :]
@@ -95,8 +101,8 @@ class TimeWeightedVectorStoreRetriever(BaseRetriever, BaseModel):
         ]
         rescored_docs.sort(key=lambda x: x[1], reverse=True)
         result = []
+
         # Ensure frequently accessed memories aren't forgotten
-        current_time = datetime.now()
         for doc, _ in rescored_docs[: self.k]:
             # TODO: Update vector store doc once `update` method is exposed.
             buffered_doc = self.memory_stream[doc.metadata["buffer_idx"]]
@@ -110,7 +116,7 @@ class TimeWeightedVectorStoreRetriever(BaseRetriever, BaseModel):
 
     def add_documents(self, documents: List[Document], **kwargs: Any) -> List[str]:
         """Add documents to vectorstore."""
-        current_time = kwargs.get("current_time", datetime.now())
+        current_time = _get_datetime_in_epoch_ms()
         # Avoid mutating input documents
         dup_docs = [deepcopy(d) for d in documents]
         for i, doc in enumerate(dup_docs):
@@ -126,7 +132,7 @@ class TimeWeightedVectorStoreRetriever(BaseRetriever, BaseModel):
         self, documents: List[Document], **kwargs: Any
     ) -> List[str]:
         """Add documents to vectorstore."""
-        current_time = kwargs.get("current_time", datetime.now())
+        current_time = _get_datetime_in_epoch_ms()
         # Avoid mutating input documents
         dup_docs = [deepcopy(d) for d in documents]
         for i, doc in enumerate(dup_docs):
