@@ -1,7 +1,7 @@
 """Retriever that combines embedding similarity with recency in retrieving values."""
 from copy import deepcopy
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field
 
@@ -9,8 +9,14 @@ from langchain.schema import BaseRetriever, Document
 from langchain.vectorstores.base import VectorStore
 
 
-def _get_hours_passed(time: int, ref_time: int) -> float:
+def _get_hours_passed(time: int, ref_time: Union[int,datetime]) -> float:
     """Get the hours passed between two datetime Epoch MS (UnixTime) objects."""
+    # To ensure backwards commpatibility, we can't assume all ref_time are in
+    # epoch milliseconds since users may have created prduction vectorstores with 
+    # the previous version of langchain where the ref_time was a datetime object.
+    if isinstance(ref_time, datetime):
+        ref_time = _get_datetime_in_epoch_ms(ref_time)
+
     # Divide by 1000 to get seconds passed, then 3600 to get hours
     return (time - ref_time) / (1000 * 3600)
 
